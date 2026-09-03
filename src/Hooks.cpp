@@ -31,7 +31,7 @@ namespace Ripples
 		REL::Relocation<std::uintptr_t> target{ RELOCATION_ID(25638, 26179), OFFSET(0x238, 0x223) };  //Precipitation::Update
 		stl::write_thunk_call<ToggleWaterSplashes>(target.address());
 
-		logger::info("installed ripples hook");
+		REX::INFO("installed ripples hook");
 	}
 }
 
@@ -53,7 +53,7 @@ namespace Splashes
 				return;
 			}
 
-			const auto& effect = a_precipGeometry->properties[RE::BSGeometry::States::kEffect];
+			const auto& effect = a_precipGeometry->shaderProperty;
 			const auto particleShader = netimmerse_cast<RE::BSParticleShaderProperty*>(effect.get());
 			const auto particleEmitter = particleShader ? particleShader->particleEmitter : nullptr;
 
@@ -92,7 +92,7 @@ namespace Splashes
 								if (!enableDebugMarker) {
 									const auto& model = rayCastOutput->hitActor ? rain->splash.nifActor : rain->splash.nif;
 									const float scale = rayCastOutput->hitActor ? rain->splash.nifScaleActor : rain->splash.nifScale;
-									RE::BSTempEffectParticle::Spawn(cell, 1.6f, model.c_str(), rayCastOutput->normal, rayCastOutput->hitPos, scale, 7, nullptr);
+									RE::BSTempEffectParticle::Spawn(cell, 1.6f, model.GetValue().c_str(), rayCastOutput->normal, rayCastOutput->hitPos, scale, 7, nullptr);
 								} else {
 									RE::BSTempEffectParticle::Spawn(cell, 1.6f, "MarkerX.nif", rayCastOutput->normal, rayCastOutput->hitPos, 0.5f, 7, nullptr);
 								}
@@ -110,7 +110,7 @@ namespace Splashes
 		REL::Relocation<std::uintptr_t> target{ RELOCATION_ID(25671, 26213), OFFSET(0xC5, 0xCF) };
 		stl::write_thunk_call<UpdateShaderGeometry>(target.address());
 
-		logger::info("installed splashes hook");
+		REX::INFO("installed splashes hook");
 	}
 }
 

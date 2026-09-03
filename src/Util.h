@@ -2,40 +2,6 @@
 
 namespace util
 {
-	class RNG
-	{
-	public:
-		static RNG* GetSingleton()
-		{
-			static RNG singleton;
-			return &singleton;
-		}
-
-		float generate(float a_min, float a_max)
-		{
-			std::uniform_real_distribution<float> distr(a_min, a_max);
-			return distr(rng);
-		}
-
-		float generate()
-		{
-			return XoshiroCpp::FloatFromBits(rng());
-		}
-
-	private:
-		RNG() :
-			rng(std::chrono::steady_clock::now().time_since_epoch().count())
-		{}
-
-		RNG(RNG const&) = delete;
-		RNG(RNG&&) = delete;
-		~RNG() = default;
-		RNG& operator=(RNG const&) = delete;
-		RNG& operator=(RNG&&) = delete;
-
-		XoshiroCpp::Xoshiro128Plus rng;
-	};
-
 	inline std::pair<bool, float> point_in_water(const RE::NiPoint3& a_pos)
 	{
 		if (auto waterSystem = RE::TESWaterSystem::GetSingleton(); waterSystem->enabled) {
@@ -79,8 +45,10 @@ namespace RayCast
 
 	inline std::optional<RE::NiPoint3> GenerateRandomPointAroundPlayer(float a_radius, const RE::NiPoint3& a_posIn, bool a_inPlayerFOV)
 	{
-		const float r = a_radius * std::sqrtf(RNG::GetSingleton()->generate());
-		const float theta = RNG::GetSingleton()->generate() * RE::NI_TWO_PI;
+		auto rng = REX::TRandom<float>();
+		
+		const float r = a_radius * std::sqrtf(rng.Generate(0.0f,1.0f));
+		const float theta = rng.Generate(0.0f, 1.0f) * RE::NI_TWO_PI;
 
 		const RE::NiPoint3 randPoint{
 			a_posIn.x + r * std::cosf(theta),
@@ -88,7 +56,7 @@ namespace RayCast
 			a_posIn.z
 		};
 
-		if (!a_inPlayerFOV || RE::NiCamera::PointInFrustum(randPoint, RE::Main::WorldRootCamera(), 32.0f)) {
+		if (!a_inPlayerFOV || RE::Main::WorldRootCamera()->PointInFrustum(randPoint, 32.0f)) {
 			return randPoint;
 		}
 
@@ -120,7 +88,7 @@ namespace RayCast
 		pickData.rayInput.from = rayStart * havokWorldScale;
 		pickData.rayInput.to = rayEnd * havokWorldScale;
 		pickData.rayInput.enableShapeCollectionFilter = false;
-		pickData.rayInput.filterInfo = RE::bhkCollisionFilter::GetSingleton()->GetNewSystemGroup() << 16 | std::to_underlying(RE::COL_LAYER::kLOS);
+		pickData.rayInput.filterInfo.SetCollisionLayer(RE::COL_LAYER::kLOS);
 
 		if (bhkWorld->PickObject(pickData); pickData.rayOutput.HasHit()) {
 			Output output;
@@ -128,9 +96,9 @@ namespace RayCast
 			const auto distance = rayEnd - rayStart;
 			output.hitPos = rayStart + (distance * pickData.rayOutput.hitFraction);
 
-			output.normal.SetEulerAnglesXYZ({ -0, -0, RNG::GetSingleton()->generate(-RE::NI_PI, RE::NI_PI) });
+			output.normal.SetEulerAnglesXYZ({ -0, -0, REX::TRandom<float>().Generate(-RE::NI_PI, RE::NI_PI) });
 
-			switch (static_cast<RE::COL_LAYER>(pickData.rayOutput.rootCollidable->broadPhaseHandle.collisionFilterInfo & 0x7F)) {
+			switch (pickData.rayOutput.rootCollidable->broadPhaseHandle.collisionFilterInfo.GetCollisionLayer()) {
 			case RE::COL_LAYER::kCharController:
 			case RE::COL_LAYER::kBiped:
 			case RE::COL_LAYER::kDeadBip:
@@ -182,10 +150,9 @@ namespace Ripples
 						}
 
 						RE::BSVisit::TraverseScenegraphGeometries(rippleObject.get(), [&](RE::BSGeometry* a_geometry) -> RE::BSVisit::BSVisitControl {
-							using State = RE::BSGeometry::States;
 							using Feature = RE::BSShaderMaterial::Feature;
 
-							if (const auto effect = a_geometry->properties[State::kEffect].get()) {
+							if (const auto& effect = a_geometry->shaderProperty.get()) {
 								if (const auto effectShaderProp = netimmerse_cast<RE::BSEffectShaderProperty*>(effect)) {
 									if (const auto material = static_cast<RE::BSEffectShaderMaterial*>(effectShaderProp->material)) {
 										material->baseColor.alpha = fadeAmount;

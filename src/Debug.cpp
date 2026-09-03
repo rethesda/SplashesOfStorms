@@ -29,8 +29,8 @@ namespace Debug
 
 			print("[Splashes of Storms] Reloading settings..");
 
-			logger::info("******************************");
-			logger::info("Reloading settings..");
+			REX::INFO("******************************");
+			REX::INFO("Reloading settings..");
 
 			if (Settings::Manager::GetSingleton()->LoadSettings()) {
 				std::string weather;
@@ -61,7 +61,7 @@ namespace Debug
 				}
 			} else {
 				print("[Splashes of Storms] Fail, errors detected in config! Check po3_SplashesOfStorms.log for more info");
-				logger::error("Failed to load settings from .toml config!\n");
+				REX::ERROR("Failed to load settings from .toml config!\n");
 			}
 
 			return true;
@@ -83,7 +83,7 @@ namespace Debug
 			function->executeFunction = &detail::Execute;
 			function->conditionFunction = nullptr;
 
-			logger::debug("installed {}", detail::LONG_NAME);
+			REX::DEBUG("installed {}", detail::LONG_NAME);
 		}
 	}
 }
