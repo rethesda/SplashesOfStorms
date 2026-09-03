@@ -37,7 +37,7 @@ namespace Ripples
 
 namespace Splashes
 {
-	inline float splashTimer = 0.0f;
+	inline float    splashTimer = 0.0f;
 	constexpr float splashDelay = 0.01f;
 
 	struct UpdateShaderGeometry
@@ -54,8 +54,8 @@ namespace Splashes
 			}
 
 			const auto& effect = a_precipGeometry->shaderProperty;
-			const auto particleShader = netimmerse_cast<RE::BSParticleShaderProperty*>(effect.get());
-			const auto particleEmitter = particleShader ? particleShader->particleEmitter : nullptr;
+			const auto  particleShader = netimmerse_cast<RE::BSParticleShaderProperty*>(effect.get());
+			const auto  particleEmitter = particleShader ? particleShader->particleEmitter : nullptr;
 
 			if (!particleEmitter || particleEmitter->emitterType != RE::BSParticleShaderEmitter::EMITTER_TYPE::kRain) {
 				settings->SetRainType(Rain::TYPE::kInvalid);
@@ -85,21 +85,30 @@ namespace Splashes
 				const auto rayCastRadius = rain->splash.rayCastRadius;
 				const auto rayCastIterations = rain->splash.rayCastIterations;
 
-				for (std::size_t i = 0; i < rayCastIterations; i++) {
-					if (const auto rayOrigin = RayCast::GenerateRandomPointAroundPlayer(rayCastRadius, playerPos, true); rayOrigin) {
-						SKSE::GetTaskInterface()->AddTask([=] {
-							if (const auto rayCastOutput = RayCast::GenerateRayCast(cell, { *rayOrigin }); rayCastOutput && !rayCastOutput->hitWater) {
-								if (!enableDebugMarker) {
-									const auto& model = rayCastOutput->hitActor ? rain->splash.GetNifActor() : rain->splash.GetNif();
-									const float scale = rayCastOutput->hitActor ? rain->splash.nifScaleActor : rain->splash.nifScale;
-									RE::BSTempEffectParticle::Spawn(cell, 1.6f, model.c_str(), rayCastOutput->normal, rayCastOutput->hitPos, scale, 7, nullptr);
-								} else {
-									RE::BSTempEffectParticle::Spawn(cell, 1.6f, "MarkerX.nif", rayCastOutput->normal, rayCastOutput->hitPos, 0.5f, 7, nullptr);
-								}
-							}
-						});
+				const auto worldCam = RE::Main::WorldRootCamera();
+
+				SKSE::GetTaskInterface()->AddTask([=] {
+					const auto bhkWorld = RayCast::GetValidWorld(cell);
+					if (!bhkWorld) {
+						return;
 					}
-				}
+
+					for (std::size_t i = 0; i < rayCastIterations; i++) {
+						const auto rayOrigin = RayCast::GenerateRandomPointAroundPlayer(worldCam, rayCastRadius, playerPos, true);
+						if (!rayOrigin) {
+							continue;
+						}
+						if (const auto rayCastOutput = RayCast::GenerateRayCast(bhkWorld, { *rayOrigin }); rayCastOutput && !rayCastOutput->hitWater) {
+							if (!enableDebugMarker) {
+								const auto& model = rayCastOutput->hitActor ? rain->splash.GetNifActor() : rain->splash.GetNif();
+								const float scale = rayCastOutput->hitActor ? rain->splash.nifScaleActor : rain->splash.nifScale;
+								RE::BSTempEffectParticle::Spawn(cell, 1.6f, model.c_str(), rayCastOutput->normal, rayCastOutput->hitPos, scale, 7, nullptr);
+							} else {
+								RE::BSTempEffectParticle::Spawn(cell, 1.6f, "MarkerX.nif", rayCastOutput->normal, rayCastOutput->hitPos, 0.5f, 7, nullptr);
+							}
+						}
+					}
+				});
 			}
 		}
 		static inline REL::Relocation<decltype(thunk)> func;

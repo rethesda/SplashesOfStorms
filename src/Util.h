@@ -10,7 +10,7 @@ namespace util
 					for (const auto& bound : waterObject->multiBounds) {
 						if (bound) {
 							if (auto size{ bound->size }; size.z <= 10.0f) {  //avoid sloped water
-								auto center{ bound->center };
+								auto       center{ bound->center };
 								const auto boundMin = center - size;
 								const auto boundMax = center + size;
 								if (!(a_pos.x < boundMin.x || a_pos.x > boundMax.x || a_pos.y < boundMin.y || a_pos.y > boundMax.y)) {
@@ -28,8 +28,6 @@ namespace util
 
 namespace RayCast
 {
-	using namespace util;
-
 	struct Input
 	{
 		RE::NiPoint3 rayOrigin{};
@@ -37,17 +35,17 @@ namespace RayCast
 
 	struct Output
 	{
-		RE::NiPoint3 hitPos{};
+		RE::NiPoint3  hitPos{};
 		RE::NiMatrix3 normal{};
-		bool hitActor{ false };
-		bool hitWater{ false };
+		bool          hitActor{ false };
+		bool          hitWater{ false };
 	};
 
 	inline std::optional<RE::NiPoint3> GenerateRandomPointAroundPlayer(RE::NiCamera* a_camera, float a_radius, const RE::NiPoint3& a_posIn, bool a_inPlayerFOV)
 	{
-		auto rng = REX::TRandom<float>();
-		
-		const float r = a_radius * std::sqrtf(rng.Generate(0.0f,1.0f));
+		static thread_local auto rng = REX::TRandom<float>();
+
+		const float r = a_radius * std::sqrtf(rng.Generate(0.0f, 1.0f));
 		const float theta = rng.Generate(0.0f, 1.0f) * RE::NI_TWO_PI;
 
 		const RE::NiPoint3 randPoint{
@@ -63,17 +61,16 @@ namespace RayCast
 		return std::nullopt;
 	}
 
-	inline std::optional<Output> GenerateRayCast(RE::TESObjectCELL* a_cell, const Input& a_input)
+	inline RE::bhkWorld* GetValidWorld(RE::TESObjectCELL* a_cell)
 	{
 		if (!a_cell || a_cell != RE::PlayerCharacter::GetSingleton()->GetParentCell()) {
-			return std::nullopt;
+			return nullptr;
 		}
+		return a_cell->GetbhkWorld();
+	}
 
-		const auto bhkWorld = a_cell->GetbhkWorld();
-		if (!bhkWorld) {
-			return std::nullopt;
-		}
-
+	inline std::optional<Output> GenerateRayCast(RE::bhkWorld* bhkWorld, const Input& a_input)
+	{
 		RE::NiPoint3 rayStart = a_input.rayOrigin;
 		RE::NiPoint3 rayEnd = a_input.rayOrigin;
 
@@ -84,19 +81,20 @@ namespace RayCast
 
 		RE::bhkPickData pickData{};
 
-		const auto havokWorldScale = RE::bhkWorld::GetWorldScale();
+		static const auto havokWorldScale = RE::bhkWorld::GetWorldScale();
 		pickData.rayInput.from = rayStart * havokWorldScale;
 		pickData.rayInput.to = rayEnd * havokWorldScale;
 		pickData.rayInput.enableShapeCollectionFilter = false;
 		pickData.rayInput.filterInfo.SetCollisionLayer(RE::COL_LAYER::kLOS);
 
 		if (bhkWorld->PickObject(pickData); pickData.rayOutput.HasHit()) {
-			Output output;
+			Output output{};
 
 			const auto distance = rayEnd - rayStart;
 			output.hitPos = rayStart + (distance * pickData.rayOutput.hitFraction);
 
-			output.normal.SetEulerAnglesXYZ({ -0, -0, REX::TRandom<float>().Generate(-RE::NI_PI, RE::NI_PI) });
+			const auto& hitNormal = pickData.rayOutput.normal;
+			output.normal.SetEulerAnglesXYZ({ -0, -0, hitNormal.quad.m128_f32[2] });
 
 			switch (pickData.rayOutput.rootCollidable->broadPhaseHandle.collisionFilterInfo.GetCollisionLayer()) {
 			case RE::COL_LAYER::kCharController:
@@ -107,7 +105,7 @@ namespace RayCast
 				break;
 			default:
 				{
-					if (auto [inWater, waterHeight] = point_in_water(output.hitPos); inWater && waterHeight > output.hitPos.z) {
+					if (auto [inWater, waterHeight] = util::point_in_water(output.hitPos); inWater && waterHeight > output.hitPos.z) {
 						output.hitWater = true;
 						output.hitPos.z = waterHeight;
 					}
@@ -170,7 +168,7 @@ namespace Ripples
 
 	struct Dynamic
 	{
-		static inline float rippleTimer = 0.0f;
+		static inline float    rippleTimer = 0.0f;
 		static constexpr float rippleDelay = 0.01f;
 
 		static void ToggleWaterRipples(Rain* a_rain, RE::TESWaterSystem* a_waterSystem)
@@ -195,12 +193,17 @@ namespace Ripples
 
 				auto worldCam = RE::Main::WorldRootCamera();
 
-				for (std::size_t i = 0; i < rayCastIterations; i++) {
-					SKSE::GetTaskInterface()->AddTask([=] {
+				SKSE::GetTaskInterface()->AddTask([=] {
+					const auto bhkWorld = RayCast::GetValidWorld(cell);
+					if (!bhkWorld) {
+						return;
+					}
+
+					for (std::size_t i = 0; i < rayCastIterations; i++) {
 						const RayCast::Input rayCastInput{
 							*RayCast::GenerateRandomPointAroundPlayer(worldCam, rayCastRadius, playerPos, false),
 						};
-						if (const auto rayCastOutput = GenerateRayCast(cell, rayCastInput); rayCastOutput) {
+						if (const auto rayCastOutput = GenerateRayCast(bhkWorld, rayCastInput); rayCastOutput) {
 							if (rayCastOutput->hitWater) {
 								if (!enableDebugMarker) {
 									a_waterSystem->AddRipple(rayCastOutput->hitPos, a_rain->ripple.rippleDisplacementAmount * 0.0099999998f);
@@ -209,8 +212,8 @@ namespace Ripples
 								}
 							}
 						}
-					});
-				}
+					}
+				});
 			}
 		}
 	};
