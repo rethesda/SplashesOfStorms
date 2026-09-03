@@ -1,8 +1,9 @@
+#pragma once
+
 class RainObject
 {
 public:
 	RainObject() = delete;
-	virtual ~RainObject() = default;
 
 	RainObject(std::string_view a_section) :
 		enabled(a_section, "Enabled", true),

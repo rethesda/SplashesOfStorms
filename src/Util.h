@@ -43,7 +43,7 @@ namespace RayCast
 		bool hitWater{ false };
 	};
 
-	inline std::optional<RE::NiPoint3> GenerateRandomPointAroundPlayer(float a_radius, const RE::NiPoint3& a_posIn, bool a_inPlayerFOV)
+	inline std::optional<RE::NiPoint3> GenerateRandomPointAroundPlayer(RE::NiCamera* a_camera, float a_radius, const RE::NiPoint3& a_posIn, bool a_inPlayerFOV)
 	{
 		auto rng = REX::TRandom<float>();
 		
@@ -56,7 +56,7 @@ namespace RayCast
 			a_posIn.z
 		};
 
-		if (!a_inPlayerFOV || RE::Main::WorldRootCamera()->PointInFrustum(randPoint, 32.0f)) {
+		if (!a_inPlayerFOV || a_camera->PointInFrustum(randPoint, 32.0f)) {
 			return randPoint;
 		}
 
@@ -193,10 +193,12 @@ namespace Ripples
 
 				static const auto enableDebugMarker = Settings::Manager::GetSingleton()->enableDebugMarkerRipple;
 
+				auto worldCam = RE::Main::WorldRootCamera();
+
 				for (std::size_t i = 0; i < rayCastIterations; i++) {
 					SKSE::GetTaskInterface()->AddTask([=] {
 						const RayCast::Input rayCastInput{
-							*RayCast::GenerateRandomPointAroundPlayer(rayCastRadius, playerPos, false),
+							*RayCast::GenerateRandomPointAroundPlayer(worldCam, rayCastRadius, playerPos, false),
 						};
 						if (const auto rayCastOutput = GenerateRayCast(cell, rayCastInput); rayCastOutput) {
 							if (rayCastOutput->hitWater) {

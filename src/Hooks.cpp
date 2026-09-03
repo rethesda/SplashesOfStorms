@@ -90,9 +90,9 @@ namespace Splashes
 						SKSE::GetTaskInterface()->AddTask([=] {
 							if (const auto rayCastOutput = RayCast::GenerateRayCast(cell, { *rayOrigin }); rayCastOutput && !rayCastOutput->hitWater) {
 								if (!enableDebugMarker) {
-									const auto& model = rayCastOutput->hitActor ? rain->splash.nifActor : rain->splash.nif;
+									const auto& model = rayCastOutput->hitActor ? rain->splash.GetNifActor() : rain->splash.GetNif();
 									const float scale = rayCastOutput->hitActor ? rain->splash.nifScaleActor : rain->splash.nifScale;
-									RE::BSTempEffectParticle::Spawn(cell, 1.6f, model.GetValue().c_str(), rayCastOutput->normal, rayCastOutput->hitPos, scale, 7, nullptr);
+									RE::BSTempEffectParticle::Spawn(cell, 1.6f, model.c_str(), rayCastOutput->normal, rayCastOutput->hitPos, scale, 7, nullptr);
 								} else {
 									RE::BSTempEffectParticle::Spawn(cell, 1.6f, "MarkerX.nif", rayCastOutput->normal, rayCastOutput->hitPos, 0.5f, 7, nullptr);
 								}
